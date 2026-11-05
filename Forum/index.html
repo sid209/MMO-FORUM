@@ -756,7 +756,7 @@
       <div class="membership-banner" id="membership-banner">
         <div class="banner-text">
           <h2><i class="fas fa-crown"></i> Unlock the full 225T experience</h2>
-          <p>Join via invitation code or a $120/year membership. Post threads, grab early-access discounts, join group buys, and advertise your product with a boost.</p>
+          <p>Join via invitation code or a $120/year membership. Both options include forum posting, early-access discounts, and group buys. Paid membership also includes an advertising boost.</p>
         </div>
         <div class="banner-actions">
           <button class="banner-btn primary" onclick="openMembershipModal('invite')">
@@ -804,10 +804,10 @@
           <h4>Group buy access</h4>
           <p>Join members-only group buys to split the cost of premium tools and services.</p>
         </div>
-        <div class="perk-card">
+        <div class="perk-card" id="boost-perk">
           <div class="perk-icon"><i class="fas fa-bullhorn"></i></div>
-          <h4>Advertise with boost</h4>
-          <p>Post your product or service with external advertising boost to reach buyers faster.</p>
+          <h4>Paid membership: Advertise with boost</h4>
+          <p>Paid members can promote a product or service with an advertising boost.</p>
         </div>
       </div>
 
@@ -931,7 +931,6 @@
               <div class="modal-perk-item"><i class="fas fa-check-circle"></i> Post on the forum</div>
               <div class="modal-perk-item"><i class="fas fa-check-circle"></i> Early access discount codes</div>
               <div class="modal-perk-item"><i class="fas fa-check-circle"></i> Group buy access</div>
-              <div class="modal-perk-item"><i class="fas fa-check-circle"></i> Post product/service + ad boost</div>
             </div>
           </div>
           <label class="field-label" for="invite-code">Invitation code</label>
@@ -1759,6 +1758,7 @@
       isMember = true;
       memberName = name || 'new_member';
       updateThreadComposerAccess();
+      document.getElementById('boost-perk').hidden = method === 'invite';
 
       const userBadge = document.querySelector('.user-badge span');
       if (userBadge) userBadge.textContent = '@' + memberName;
