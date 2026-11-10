@@ -691,6 +691,33 @@
 
     .member-pill i { font-size: 0.65rem; }
 
+    /* Balance / earnings */
+    .balance-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(74, 108, 247, 0.12);
+      border: 1px solid rgba(74, 108, 247, 0.35);
+      color: #8fb4ff; font-size: 0.72rem; font-weight: 600;
+      padding: 0.2rem 0.7rem; border-radius: 20px;
+      margin-left: 8px;
+    }
+    .balance-pill i { font-size: 0.65rem; color: #4a6cf7; }
+
+    .earnings-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.25);
+      color: #4ade80; font-size: 0.7rem; font-weight: 600;
+      padding: 0.15rem 0.6rem; border-radius: 20px;
+    }
+    .earnings-badge i { font-size: 0.6rem; color: #4ade80; }
+
+    .post-earn-row {
+      margin-top: 0.5rem; font-size: 0.78rem; color: #8f9bb3;
+      display: flex; gap: 1.5rem; flex-wrap: wrap;
+    }
+    .post-earn-row i { color: #5c6a8f; margin-right: 5px; }
+    .post-earn-row .earn-amount { color: #4ade80; font-weight: 600; }
+
     .footer-note {
       text-align: center; margin-top: 3rem;
       padding-top: 1.5rem; border-top: 1px solid #1e2028;
@@ -748,6 +775,9 @@
             <i class="fas fa-user-circle"></i>
             <span>@guest_viewer</span>
             <i class="fas fa-chevron-down" style="font-size:0.7rem; opacity:0.7;"></i>
+          </div>
+          <div class="balance-pill" id="header-balance">
+            <i class="fas fa-coins"></i> <span id="balance-text">$0.00</span>
           </div>
         </div>
       </header>
@@ -973,7 +1003,13 @@
     // ==================== MEMBERSHIP STATE ====================
     let isMember = false;
     let memberName = 'guest_viewer';
+    let memberBalance = 0.00;
     const validInviteCodes = ['225T-2024-VIP', '225T-DEMO-CODE', '225T-JOIN-NOW'];
+
+    // ==================== EARNINGS RATES ====================
+    const EARN_PER_LIKE = 0.10;
+    const EARN_PER_REPLY = 0.25;
+    const EARN_PER_100_VIEWS = 0.05;
 
     // ==================== LIVE STATS STATE ====================
     const liveStats = {
@@ -993,6 +1029,24 @@
 
     function formatNumber(n) {
       return n.toLocaleString('en-US');
+    }
+
+    function formatMoney(amount) {
+      return '$' + amount.toFixed(2);
+    }
+
+    function parseViews(v) {
+      if (typeof v === 'number') return v;
+      const s = String(v).toLowerCase().trim();
+      if (s.endsWith('k')) return parseFloat(s) * 1000 || 0;
+      return parseFloat(s) || 0;
+    }
+
+    function getThreadEarnings(thread) {
+      const likesEarn = (thread.likes || 0) * EARN_PER_LIKE;
+      const repliesEarn = ((thread.replies && thread.replies.length) || 0) * EARN_PER_REPLY;
+      const viewsEarn = (parseViews(thread.views) / 100) * EARN_PER_100_VIEWS;
+      return likesEarn + repliesEarn + viewsEarn;
     }
 
     function escapeHtml(value) {
@@ -1285,6 +1339,7 @@
           <div class="thread-stats">
             <span><i class="fas fa-comment"></i> ${thread.comments}</span>
             <span><i class="fas fa-thumbs-up"></i> ${thread.likes}</span>
+            <span class="earnings-badge"><i class="fas fa-coins"></i> ${formatMoney(getThreadEarnings(thread))}</span>
           </div>
           <div class="last-post">
             <i class="fas fa-reply"></i> by @${lastReply}
@@ -1299,9 +1354,11 @@
       document.getElementById('lounge-threads').innerHTML = threads.lounge.map(t => renderThreadItem(t, 'lounge')).join('');
     }
 
-    function renderReply(reply) {
+    function renderReply(reply, category, threadId) {
       const badgeHtml = reply.badge ? `<span class="reply-badge">${reply.badge}</span>` : '';
       const avatarIcon = reply.badge === 'OP' ? 'fa-user-tie' : (reply.badge === 'You' ? 'fa-user-astronaut' : 'fa-user');
+      const isLiked = reply.liked ? ' liked' : '';
+      const likeColor = reply.liked ? ' style="color:#4a6cf7"' : '';
       return `
         <div class="reply-item">
           <div class="reply-avatar"><i class="fas ${avatarIcon}"></i></div>
@@ -1313,7 +1370,7 @@
             </div>
             <div class="reply-text">${escapeHtml(reply.text)}</div>
             <div class="reply-actions">
-              <span onclick="event.stopPropagation(); likeReply(this)"><i class="fas fa-thumbs-up"></i> Like</span>
+              <span class="reply-like-btn${isLiked}" onclick="event.stopPropagation(); likeReply(this, '${category}', '${threadId}', '${escapeHtml(reply.author)}')"${likeColor}><i class="fas fa-thumbs-up"></i> Like</span>
               <span><i class="fas fa-reply"></i> Reply</span>
               <span><i class="fas fa-flag"></i> Report</span>
             </div>
@@ -1327,7 +1384,7 @@
       if (!thread) return;
 
       const tagsHtml = thread.tags.map(t => `<span class="tag ${t.cls}">${t.label}</span>`).join('');
-      const repliesHtml = thread.replies.map(r => renderReply(r)).join('');
+      const repliesHtml = thread.replies.map(r => renderReply(r, category, id)).join('');
 
       let bodyHtml, replyFormHtml, repliesHeaderHtml;
       if (thread.memberOnly && !isMember) {
@@ -1391,6 +1448,13 @@
             <span><i class="fas fa-clock"></i> Posted ${thread.time}</span>
             <span><i class="fas fa-comment"></i> ${thread.replies.length} replies</span>
             <span><i class="fas fa-thumbs-up"></i> ${thread.likes} likes</span>
+            <span class="post-like-btn" onclick="event.stopPropagation(); togglePostLike(this, '${category}', '${id}')" title="Like post"><i class="fas fa-thumbs-up"></i></span>
+          </div>
+          <div class="post-earn-row">
+            <span><i class="fas fa-coins"></i> <span class="earn-amount" id="post-earned">${formatMoney(getThreadEarnings(thread))}</span> earned</span>
+            <span><i class="fas fa-thumbs-up"></i> <span class="earn-amount">${((thread.likes || 0) * EARN_PER_LIKE).toFixed(2)}</span> from likes</span>
+            <span><i class="fas fa-comment"></i> <span class="earn-amount">${(((thread.replies && thread.replies.length) || 0) * EARN_PER_REPLY).toFixed(2)}</span> from replies</span>
+            <span><i class="fas fa-eye"></i> <span class="earn-amount">$${(((parseViews(thread.views) / 100) * EARN_PER_100_VIEWS).toFixed(2))}</span> from views</span>
           </div>
         </div>
         <div class="post-body">${bodyHtml}</div>
@@ -1427,14 +1491,21 @@
       }
       const thread = threads[category].find(t => t.id === threadId);
       if (!thread) return;
-      thread.replies.push({ author: memberName, time: 'just now', badge: 'You', text: text });
+      thread.replies.push({ author: memberName, time: 'just now', badge: 'You', text: text, liked: false });
       thread.comments += 1;
       thread.time = 'just now';
       thread.lastReply = memberName;
 
+      // Award earnings to the thread author for receiving a reply
+      const replyEarn = EARN_PER_REPLY;
+      if (thread.author === memberName) {
+        memberBalance += replyEarn;
+        updateBalanceDisplay();
+      }
+
       liveStats.posts += 1;
       updateStatDisplay('posts', liveStats.posts);
-      showToast('Reply posted! Your post is now live on the forum.');
+      showToast(`Reply posted! ${thread.author === memberName ? '+$0.25 earned' : 'Your reply is live.'}`);
 
       openPost(category, threadId);
       renderForum();
@@ -1521,10 +1592,57 @@
       document.getElementById('composer-lock').hidden = isMember;
     }
 
-    function likeReply(el) {
+    function likeReply(el, category, threadId, replyAuthor) {
       if (el.classList.contains('liked')) return;
       el.classList.add('liked');
       el.style.color = '#4a6cf7';
+
+      const thread = threads[category].find(t => t.id === threadId);
+      if (!thread) return;
+
+      // Award earnings to the reply author
+      const replyEarn = EARN_PER_LIKE;
+      if (replyAuthor === memberName) {
+        memberBalance += replyEarn;
+        updateBalanceDisplay();
+      }
+      showToast(`+${formatMoney(replyEarn)} earned from reply like`);
+    }
+
+    function togglePostLike(el, category, threadId) {
+      const thread = threads[category].find(t => t.id === threadId);
+      if (!thread) return;
+
+      if (el.classList.contains('liked')) {
+        // Unlike
+        el.classList.remove('liked');
+        el.style.color = '';
+        thread.likes = Math.max(0, (thread.likes || 0) - 1);
+        if (thread.author === memberName) {
+          memberBalance = Math.max(0, memberBalance - EARN_PER_LIKE);
+          updateBalanceDisplay();
+        }
+      } else {
+        // Like
+        el.classList.add('liked');
+        el.style.color = '#4a6cf7';
+        thread.likes = (thread.likes || 0) + 1;
+        if (thread.author === memberName) {
+          memberBalance += EARN_PER_LIKE;
+          updateBalanceDisplay();
+        }
+      }
+
+      // Re-render earnings displays
+      renderForum();
+      const earnEl = document.getElementById('post-earned');
+      if (earnEl) earnEl.textContent = formatMoney(getThreadEarnings(thread));
+      showToast(thread.author === memberName ? `+${formatMoney(EARN_PER_LIKE)} earned from post like` : 'Post liked!');
+    }
+
+    function updateBalanceDisplay() {
+      const el = document.getElementById('balance-text');
+      if (el) el.textContent = formatMoney(memberBalance);
     }
 
     // ==================== LIVE STATS ENGINE ====================
